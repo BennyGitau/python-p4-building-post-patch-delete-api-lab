@@ -23,12 +23,43 @@ def bakeries():
     bakeries = [bakery.to_dict() for bakery in Bakery.query.all()]
     return make_response(  bakeries,   200  )
 
-@app.route('/bakeries/<int:id>')
+@app.route('/bakeries/<int:id>', methods=['GET','PATCH'])
 def bakery_by_id(id):
-
     bakery = Bakery.query.filter_by(id=id).first()
-    bakery_serialized = bakery.to_dict()
-    return make_response ( bakery_serialized, 200  )
+    if bakery == None:
+        response_body = {
+            'message': 'Bakery not found in the database'
+        }
+        return make_response( response_body, 404  )
+    else:
+        if request.method == 'GET':
+            bakery_serialized = bakery.to_dict()
+            return make_response ( bakery_serialized, 200  )
+
+        #This could be used if we wanted to update the name of the bakery
+        #elif request.method == 'PATCH':
+        #   data = request.get_json()
+        #  bakery = Bakery.query.filter_by(id=id).first()
+        #    bakery.name = data['name']
+        #    db.session.add(bakery)
+        #    db.session.commit()
+        #    return make_response( 'Bakery updated', 200  )
+        # This is useful when we don't know which fields will be updated 
+        elif request.method == 'PATCH':
+            for attr in request.form:
+                setattr(bakery, attr, request.form.get(attr))
+
+            db.session.add(bakery)
+            db.session.commit()
+
+            bakery_dict = bakery.to_dict()
+
+            return make_response(
+                bakery_dict,
+                200
+            )
+
+
 
 @app.route('/baked_goods/by_price')
 def baked_goods_by_price():
@@ -44,6 +75,39 @@ def most_expensive_baked_good():
     most_expensive = BakedGood.query.order_by(BakedGood.price.desc()).limit(1).first()
     most_expensive_serialized = most_expensive.to_dict()
     return make_response( most_expensive_serialized,   200  )
+
+@app.route('/baked_goods', methods=['GET','POST'])
+def baked_goods():
+    if request.method == 'GET':
+        baked_goods = [bg.to_dict() for bg in BakedGood.query.all()]
+        return make_response( baked_goods, 200  )
+    elif request.method == 'POST':
+        baked_good = BakedGood(
+            name= request.form.get('name'),
+            price=request.form.get('price'),
+            bakery_id=request.form.get('bakery_id'),
+        )
+        db.session.add(baked_good)
+        db.session.commit()
+        baked_good_serialized = baked_good.to_dict()
+        return make_response( baked_good_serialized, 201  )
+    
+@app.route('/baked_goods/<int:id>', methods=['GET','DELETE'])
+def baked_good_by_id(id):
+    baked_good = BakedGood.query.filter_by(id=id).first()
+    if baked_good == None:
+        response_body = {
+            'message': 'Baked good not found in the database'
+        }
+        return make_response( response_body, 404  )
+    else:
+        if request.method == 'GET':
+            baked_good_serialized = baked_good.to_dict()
+            return make_response( baked_good_serialized, 200  )
+        elif request.method == 'DELETE':
+            db.session.delete(baked_good)
+            db.session.commit()
+            return make_response( 'Baked good deleted', 200, {"Content-Type": "application/json"})
 
 if __name__ == '__main__':
     app.run(port=5555, debug=True)
